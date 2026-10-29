@@ -1,0 +1,29 @@
+﻿# Node.js
+node_modules/
+.next/
+out/
+dist/
+build/
+npm-debug.log*
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Django
+db.sqlite3
+media/
+
+# IDE and operating system
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
