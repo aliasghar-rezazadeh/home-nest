@@ -25,4 +25,5 @@ urlpatterns = [
         name="token_refresh",
     ),
     path("api/cart/", include("cart.urls")),
+    path("api/wishlist/", include("wishlist.urls")),
 ]

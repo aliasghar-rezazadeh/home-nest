@@ -3,9 +3,11 @@ from rest_framework import serializers
 from .models import Cart, CartItem
 from products.models import Product
 from products.serializers import ProductSerializer
+from decimal import Decimal
 
 class CartItemSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
+    total_price = serializers.SerializerMethodField()
 
     class Meta:
         model = CartItem
@@ -13,24 +15,48 @@ class CartItemSerializer(serializers.ModelSerializer):
             "id",
             "product",
             "quantity",
+            "total_price",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "total_price",
+        ]
 
+    def get_total_price(self, obj):
+        return obj.product.price * obj.quantity
 
 class CartSerializer(serializers.ModelSerializer):
     items = CartItemSerializer(many=True, read_only=True)
+    total_price = serializers.SerializerMethodField()
 
     class Meta:
         model = Cart
         fields = [
             "id",
             "items",
+            "total_price",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "total_price",
+        ]
+
+    def get_total_price(self, obj):
+        return sum(
+            (
+                item.product.price * item.quantity
+                for item in obj.items.all()
+            ),
+            Decimal("0.00")
+        )
 
 class AddCartItemSerializer(serializers.Serializer):
     product_id = serializers.PrimaryKeyRelatedField(
