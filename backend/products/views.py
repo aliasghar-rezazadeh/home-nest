@@ -9,25 +9,67 @@ from core.permissions import IsAdminRoleOrReadOnly
 
 
 class ProductListView(generics.ListCreateAPIView):
-    queryset = Product.objects.all()
+
     serializer_class = ProductSerializer
     filterset_class = ProductFilter
 
-    search_fields = ["name", "description"]
-    ordering_fields = ["price", "created_at", "name", "stock"]
+    search_fields = [
+        "name",
+        "description",
+        "sku",
+    ]
+
+    ordering_fields = [
+        "price",
+        "created_at",
+        "name",
+        "stock",
+    ]
+
     ordering = ["-created_at"]
 
     permission_classes = [IsAdminRoleOrReadOnly]
 
+    def get_queryset(self):
+
+        return (
+            Product.objects
+            .select_related("category")
+            .prefetch_related(
+                "tags",
+                "variants",
+                "reviews__user",
+                "images",
+                "specifications",
+                "content_blocks",
+            )
+        )
+
 
 class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Product.objects.all()
+
     serializer_class = ProductSerializer
 
     permission_classes = [IsAdminRoleOrReadOnly]
 
+    def get_queryset(self):
+
+        return (
+            Product.objects
+            .select_related("category")
+            .prefetch_related(
+                "tags",
+                "variants",
+                "reviews__user",
+                "images",
+                "specifications",
+                "content_blocks",
+            )
+        )
+
 
 class CategoryListView(generics.ListCreateAPIView):
+
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
 
@@ -35,6 +77,7 @@ class CategoryListView(generics.ListCreateAPIView):
 
 
 class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
+
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
 

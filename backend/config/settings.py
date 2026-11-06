@@ -11,8 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'f4eu41v)g&)xy9o0vt^)@5#_r73$t=*w5@*^9+3l^4bg+7*gr5'
-
+SECRET_KEY = os.environ["SECRET_KEY"]
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
@@ -35,6 +34,7 @@ INSTALLED_APPS = [
     "core",
     "cart",
     "wishlist",
+    "orders",
 ]
 
 MIDDLEWARE = [

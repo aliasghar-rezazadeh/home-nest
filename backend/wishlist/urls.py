@@ -4,6 +4,7 @@ from django.urls import path
 from .views import (
     WishlistView,
     AddWishlistItemView,
+    ToggleWishlistItemView,
     RemoveWishlistItemView,
 )
 
@@ -14,6 +15,12 @@ urlpatterns = [
         "items/",
         AddWishlistItemView.as_view(),
         name="wishlist-add-item"
+    ),
+
+    path(
+        "toggle/",
+        ToggleWishlistItemView.as_view(),
+        name="wishlist-toggle"
     ),
 
     path(
