@@ -1,12 +1,10 @@
-
 from rest_framework import generics
-
 from .models import Product, Category
 from .serializers import ProductSerializer, CategorySerializer
 from .filters import ProductFilter
-
 from core.permissions import IsAdminRoleOrReadOnly
-
+from django.db.models import Count
+from .pagination import CategoryPagination
 
 class ProductListView(generics.ListCreateAPIView):
 
@@ -68,17 +66,23 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
         )
 
 
+
+
 class CategoryListView(generics.ListCreateAPIView):
-
-    queryset = Category.objects.all()
+    queryset = Category.objects.annotate(
+        products_count=Count("products")
+    )
     serializer_class = CategorySerializer
-
     permission_classes = [IsAdminRoleOrReadOnly]
+    pagination_class = CategoryPagination
 
 
 class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
 
-    queryset = Category.objects.all()
+    queryset = Category.objects.annotate(
+        products_count=Count("products")
+    )
+
     serializer_class = CategorySerializer
 
     permission_classes = [IsAdminRoleOrReadOnly]

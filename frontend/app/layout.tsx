@@ -1,8 +1,13 @@
+
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+
 import Header from "@/components/layout/header/Header";
 import Footer from "@/components/layout/Footer";
+
+import { AuthProvider } from "@/context/AuthContext";
+import ReduxProvider from "@/redux/ReduxProvider";
 
 const poppins = localFont({
     src: [
@@ -63,13 +68,17 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
     children,
-}: Readonly<{children: React.ReactNode;}>) {
+}: Readonly<{ children: React.ReactNode }>) {
     return (
         <html lang="en" className={`${poppins.variable} h-full antialiased`}>
             <body className="flex min-h-full flex-col">
-                <Header />
-                <main className="flex-1">{children}</main>
-                <Footer />
+                <ReduxProvider>
+                    <AuthProvider>
+                        <Header />
+                        <main className="flex-1">{children}</main>
+                        <Footer />
+                    </AuthProvider>
+                </ReduxProvider>
             </body>
         </html>
     );

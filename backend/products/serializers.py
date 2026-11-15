@@ -15,17 +15,25 @@ from .models import (
 
 class CategorySerializer(serializers.ModelSerializer):
 
+    products_count = serializers.IntegerField(
+        read_only=True,
+        default=0
+    )
+
     class Meta:
         model = Category
         fields = [
             "id",
             "name",
+            "image",
+            "products_count",
             "description",
             "created_at",
         ]
 
         read_only_fields = [
             "id",
+            "products_count",
             "created_at",
         ]
 
@@ -134,7 +142,7 @@ class ProductContentBlockSerializer(serializers.ModelSerializer):
 
 class ProductSerializer(serializers.ModelSerializer):
 
-    # اعتبارسنجی نام محصول
+    # Product name validation
     name = serializers.CharField(
         allow_blank=True,
         error_messages={
@@ -142,7 +150,7 @@ class ProductSerializer(serializers.ModelSerializer):
         }
     )
 
-    # اعتبارسنجی توضیحات
+    # Product description validation
     description = serializers.CharField(
         allow_blank=True,
         error_messages={
@@ -150,7 +158,7 @@ class ProductSerializer(serializers.ModelSerializer):
         }
     )
 
-    # اعتبارسنجی موجودی
+    # Stock validation
     stock = serializers.IntegerField(
         min_value=0,
         error_messages={
@@ -158,17 +166,24 @@ class ProductSerializer(serializers.ModelSerializer):
         }
     )
 
-    # SKU اختیاری
+    # Optional SKU
     sku = serializers.CharField(
         required=False,
         allow_null=True,
         allow_blank=True
     )
 
-    # نمایش اطلاعات دسته‌بندی
+    # Final price (read only)
+    final_price = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        read_only=True
+    )
+
+    # Category information
     category = CategorySerializer(read_only=True)
 
-    # دریافت شناسه دسته‌بندی
+    # Category ID for create/update
     category_id = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.all(),
         source="category",
@@ -177,13 +192,13 @@ class ProductSerializer(serializers.ModelSerializer):
         allow_null=True
     )
 
-    # نمایش برچسب‌ها
+    # Product tags
     tags = ProductTagSerializer(
         many=True,
         read_only=True
     )
 
-    # دریافت شناسه برچسب‌ها
+    # Tag IDs for create/update
     tag_ids = serializers.PrimaryKeyRelatedField(
         queryset=ProductTag.objects.all(),
         source="tags",
@@ -192,43 +207,43 @@ class ProductSerializer(serializers.ModelSerializer):
         required=False
     )
 
-    # نمایش تنوع‌های محصول
+    # Product variants
     variants = ProductVariantSerializer(
         many=True,
         read_only=True
     )
 
-    # نمایش نظرات کاربران
+    # Product reviews
     reviews = ProductReviewSerializer(
         many=True,
         read_only=True
     )
 
-    # نمایش تصاویر محصول
+    # Secondary product images
     images = ProductImageSerializer(
         many=True,
         read_only=True
     )
 
-    # نمایش مشخصات محصول
+    # Product specifications
     specifications = ProductSpecificationSerializer(
         many=True,
         read_only=True
     )
 
-    # نمایش محتوای ترکیبی توضیحات
+    # Product content blocks
     content_blocks = ProductContentBlockSerializer(
         many=True,
         read_only=True
     )
 
-    # میانگین امتیاز محاسبه‌شده از نظرات
+    # Average rating
     average_rating = serializers.FloatField(read_only=True)
 
-    # تعداد نظرات
+    # Number of reviews
     reviews_count = serializers.IntegerField(read_only=True)
 
-    # اعتبارسنجی نام
+    # Name validation
     def validate_name(self, value):
 
         if not value.strip():
@@ -238,7 +253,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
         return value.strip()
 
-    # اعتبارسنجی توضیحات
+    # Description validation
     def validate_description(self, value):
 
         if not value.strip():
@@ -248,7 +263,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
         return value
 
-    # اعتبارسنجی قیمت
+    # Price validation
     def validate_price(self, value):
 
         if value <= 0:
@@ -258,7 +273,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
         return value
 
-    # اعتبارسنجی SKU
+    # SKU validation
     def validate_sku(self, value):
 
         if value is None or not value.strip():
@@ -275,6 +290,9 @@ class ProductSerializer(serializers.ModelSerializer):
             "sku",
             "description",
             "price",
+            "discount_percentage",
+            "final_price",
+            "is_featured",
             "stock",
             "image",
             "category",

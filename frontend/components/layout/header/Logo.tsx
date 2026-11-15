@@ -1,16 +1,17 @@
-import Image from "next/image";
-
 function Logo() {
     return (
         <div className="flex items-center">
-            <Image
+            <img
                 src="/images/Logos.svg"
                 alt="HomeNest logo"
-                width={50}
-                height={50}
-                className="w-12.5 object-contain sm:h-11"
+                width="50"
+                height="50"
+                style={{
+                    width: "50px",
+                    height: "50px",
+                    objectFit: "contain",
+                }}
             />
-
             <p className="text-[38px] font-bold text-black">
                 Furniro
             </p>

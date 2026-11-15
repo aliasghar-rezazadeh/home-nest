@@ -1,11 +1,20 @@
+
 from django.conf import settings
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from decimal import Decimal
 
+
 class Category(models.Model):
     name = models.CharField(max_length=150, unique=True)
     description = models.TextField(blank=True)
+
+    image = models.ImageField(
+        upload_to="categories/",
+        blank=True,
+        null=True
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -21,20 +30,37 @@ class ProductTag(models.Model):
 
 class Product(models.Model):
     name = models.CharField(max_length=200)
+
     sku = models.CharField(
         max_length=100,
         unique=True,
         null=True,
         blank=True
     )
+
     description = models.TextField()
+
     price = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         validators=[MinValueValidator(Decimal("0.01"))]
     )
+
     stock = models.PositiveIntegerField(default=0)
 
+    # Discount percentage (0 to 100)
+    discount_percentage = models.PositiveSmallIntegerField(
+        default=0,
+        validators=[
+            MinValueValidator(0),
+            MaxValueValidator(100),
+        ]
+    )
+
+    # Featured product for homepage
+    is_featured = models.BooleanField(default=False)
+
+    # Main product image
     image = models.ImageField(
         upload_to="products/",
         blank=True,
@@ -60,6 +86,11 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def final_price(self):
+        discount = Decimal(self.discount_percentage) / Decimal("100")
+        return self.price * (Decimal("1") - discount)
 
     @property
     def average_rating(self):
@@ -139,6 +170,7 @@ class ProductReview(models.Model):
 
 
 class ProductImage(models.Model):
+
     class ImageType(models.TextChoices):
         GALLERY = "gallery", "تصویر گالری"
         DESCRIPTION = "description", "تصویر توضیحات"
@@ -149,7 +181,9 @@ class ProductImage(models.Model):
         related_name="images"
     )
 
-    image = models.ImageField(upload_to="products/images/")
+    image = models.ImageField(
+        upload_to="products/images/"
+    )
 
     image_type = models.CharField(
         max_length=20,
@@ -204,9 +238,7 @@ class ProductContentBlock(models.Model):
         choices=BlockType.choices
     )
 
-    text = models.TextField(
-        blank=True
-    )
+    text = models.TextField(blank=True)
 
     image = models.ImageField(
         upload_to="products/content/",
@@ -223,4 +255,3 @@ class ProductContentBlock(models.Model):
 
     def __str__(self):
         return f"{self.product.name} - {self.block_type}"
-
