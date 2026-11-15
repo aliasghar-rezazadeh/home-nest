@@ -66,14 +66,14 @@ export default function ComparePage() {
 
     const columns = [
         {
-            label: "Price",
-            key: "final_price",
+            label: "Original Price",
+            key: "price",
             format: (value: string | number) =>
                 `${Number(value).toLocaleString("en-US")}`,
         },
         {
-            label: "Original Price",
-            key: "price",
+            label: "Price after discount",
+            key: "final_price",
             format: (value: string | number) =>
                 `${Number(value).toLocaleString("en-US")}`,
         },

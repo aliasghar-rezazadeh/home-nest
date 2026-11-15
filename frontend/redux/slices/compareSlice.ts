@@ -34,6 +34,7 @@ const compareSlice = createSlice({
     name: "compare",
     initialState,
     reducers: {
+        // افزودن یا حذف محصول از لیست مقایسه
         addToCompare: (state, action: PayloadAction<CompareProduct>) => {
             const exists = state.items.some(
                 (item) => item.id === action.payload.id
@@ -48,14 +49,24 @@ const compareSlice = createSlice({
             }
         },
 
+        // حذف یک محصول از لیست مقایسه
         removeFromCompare: (state, action: PayloadAction<number>) => {
             state.items = state.items.filter(
                 (item) => item.id !== action.payload
             );
         },
 
+        // پاک کردن تمام محصولات مقایسه
         clearCompare: (state) => {
             state.items = [];
+        },
+
+        // بازیابی محصولات ذخیره شده
+        setCompareItems: (
+            state,
+            action: PayloadAction<CompareProduct[]>
+        ) => {
+            state.items = action.payload;
         },
     },
 });
@@ -64,6 +75,7 @@ export const {
     addToCompare,
     removeFromCompare,
     clearCompare,
+    setCompareItems,
 } = compareSlice.actions;
 
 export default compareSlice.reducer;

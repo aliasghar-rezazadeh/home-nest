@@ -1,7 +1,7 @@
 
 import { Suspense } from "react";
 import ProductDetail from "@/components/common/ProductDetail";
-
+export const instant = false;
 export default function ProductPage() {
     return (
         <Suspense
