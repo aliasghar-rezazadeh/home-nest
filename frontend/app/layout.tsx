@@ -8,7 +8,8 @@ import Footer from "@/components/layout/Footer";
 
 import { AuthProvider } from "@/context/AuthContext";
 import ReduxProvider from "@/redux/ReduxProvider";
-
+import "react-toastify/dist/ReactToastify.css";
+import ToastProvider from "@/components/common/ToastProvider";
 const poppins = localFont({
     src: [
         {
@@ -72,6 +73,7 @@ export default function RootLayout({
     return (
         <html lang="en" className={`${poppins.variable} h-full antialiased`}>
             <body className="flex min-h-full flex-col">
+                <ToastProvider />
                 <ReduxProvider>
                     <AuthProvider>
                         <Header />

@@ -1,18 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "react-toastify";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
 import {
     HeartPlus,
+    HeartMinus,
     ChevronRight,
     Share2,
     Link as LinkIcon,
 } from "lucide-react";
 
+import { useDispatch, useSelector } from "react-redux";
+
 import StarRating from "./StarRating";
 import { getProductById } from "@/api/services/product.service";
+import { getWishlist, toggleWishlistItem } from "@/api/services/wishlist.service";
+import { getAccessToken } from "@/api/services/auth.service";
+import { addCartItem, getCart, removeCartItem } from "@/api/services/cart.service";
+import { addToCompare } from "@/redux/slices/compareSlice";
 import { ProductsCardsGrid } from "./ProductsCardsGrid";
 
 const API_URL = "http://127.0.0.1:8000";
@@ -30,6 +38,16 @@ export default function ProductDetail() {
     const router = useRouter();
 
     const id = params.id;
+
+    const dispatch = useDispatch();
+    const compareItems = useSelector((state) => state.compare.items);
+
+    const [quantity, setQuantity] = useState(1);
+    const [isLiked, setIsLiked] = useState(false);
+    const [isAddingToCart, setIsAddingToCart] = useState(false);
+    const [isCartLoading, setIsCartLoading] = useState(false);
+    const [cartItemId, setCartItemId] = useState(null);
+    const [isTogglingWishlist, setIsTogglingWishlist] = useState(false);
 
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -67,6 +85,100 @@ export default function ProductDetail() {
         window.scrollTo(0, 0);
         fetchProduct();
     }, [id]);
+
+    // دریافت وضعیت علاقه‌مندی محصول
+    useEffect(() => {
+        if (!product?.id) return;
+
+        let cancelled = false;
+
+        const loadWishlist = async () => {
+            if (!getAccessToken()) {
+                setIsLiked(false);
+                return;
+            }
+
+            try {
+                const wishlist = await getWishlist();
+
+                if (!cancelled) {
+                    setIsLiked(
+                        wishlist.items.some((item) => item.product.id === product.id)
+                    );
+                }
+            } catch (err) {
+                console.error("Wishlist loading error:", err);
+            }
+        };
+
+        loadWishlist();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [product?.id]);
+
+    // با تغییر محصول یا تنوع انتخاب‌شده، وضعیت همان تنوع را از سبد خرید می‌خوانیم
+    useEffect(() => {
+        let cancelled = false;
+
+        const loadSelectedCartItem = async () => {
+            setCartItemId(null);
+            setQuantity(1);
+            setIsCartLoading(false);
+
+            if (!product?.id) return;
+
+            const currentVariants = product.variants ?? [];
+            const currentColors = [...new Set(currentVariants.map((item) => item.color).filter(Boolean))];
+            const currentSizes = [...new Set(currentVariants.map((item) => item.size).filter(Boolean))];
+            const currentHasVariants = currentVariants.length > 0;
+
+            const optionsNotSelected = currentHasVariants && (
+                (!selectedColor && currentColors.length > 0) ||
+                (!selectedSize && currentSizes.length > 0)
+            );
+
+            if (optionsNotSelected || !getAccessToken()) return;
+
+            const currentVariant = currentVariants.find((variant) => {
+                const colorMatches = !currentColors.length || variant.color === selectedColor;
+                const sizeMatches = !currentSizes.length || variant.size === selectedSize;
+                return colorMatches && sizeMatches;
+            });
+
+            if (currentHasVariants && !currentVariant) return;
+
+            try {
+                setIsCartLoading(true);
+                const cart = await getCart();
+                if (cancelled) return;
+
+                const item = cart.items.find((cartItem) =>
+                    cartItem.product.id === product.id &&
+                    (cartItem.variant?.id ?? null) === (currentVariant?.id ?? null)
+                );
+
+                if (item) {
+                    setCartItemId(item.id);
+                    setQuantity(item.quantity);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    console.error("Cart loading error:", err);
+                    toast.error(err.message || "خطا در دریافت وضعیت سبد خرید.");
+                }
+            } finally {
+                if (!cancelled) setIsCartLoading(false);
+            }
+        };
+
+        loadSelectedCartItem();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [product?.id, product?.variants, selectedColor, selectedSize]);
 
     // وضعیت بارگذاری
     if (loading) {
@@ -161,6 +273,119 @@ export default function ProductDetail() {
             ? category?.name
             : category;
 
+    const isCompared = compareItems.some((item) => item.id === product.id);
+
+    // افزودن یا حذف از علاقه‌مندی‌ها
+    const handleToggleWishlist = async () => {
+        if (!getAccessToken()) {
+            router.push("/login");
+            return;
+        }
+
+        try {
+            setIsTogglingWishlist(true);
+            const result = await toggleWishlistItem(product.id);
+            setIsLiked(result.is_favorite);
+        } catch (err) {
+            console.error("Wishlist error:", err);
+            toast.error(err.message || "خطا در به‌روزرسانی علاقه‌مندی‌ها.");
+        } finally {
+            setIsTogglingWishlist(false);
+        }
+    };
+
+    // افزودن یا حذف از مقایسه
+    const handleToggleCompare = () => {
+        dispatch(
+            addToCompare({
+                id: product.id,
+                name,
+                sku,
+                description,
+                price,
+                final_price,
+                stock,
+                image,
+                category:
+                    typeof category === "object"
+                        ? category?.id ?? null
+                        : category ?? null,
+                category_name:
+                    typeof category === "object"
+                        ? category?.name
+                        : undefined,
+                average_rating,
+                discount_percentage,
+                variants,
+            })
+        );
+    };
+
+    // اگر تنوع انتخاب‌شده در سبد باشد، همه تعداد همان تنوع حذف می‌شود؛ در غیر این صورت اضافه می‌شود
+    const handleAddToCart = async () => {
+        if (!getAccessToken()) {
+            router.push("/login");
+            return;
+        }
+
+        if (variantNotSelected) {
+            toast.warning("Please select the product color and size.");
+            return;
+        }
+
+        if (hasVariants && !selectedVariant) {
+            toast.warning("The selected combination of color and size is not valid.");
+            return;
+        }
+
+        if (cartItemId) {
+            try {
+                setIsAddingToCart(true);
+                await removeCartItem(cartItemId);
+                setCartItemId(null);
+                setQuantity(1);
+                toast.success("All quantities of this variant have been removed from the shopping cart.");
+            } catch (err) {
+                console.error("Remove from cart error:", err);
+                toast.error(err.message || "Error removing the product from the shopping cart.");
+            } finally {
+                setIsAddingToCart(false);
+            }
+            return;
+        }
+
+        if (availableStock < 1) {
+            toast.warning("This product is not in stock.");
+            return;
+        }
+
+        if (quantity > availableStock) {
+            toast.warning("The selected quantity exceeds the product's available stock.");
+            return;
+        }
+
+        try {
+            setIsAddingToCart(true);
+            const cart = await addCartItem(product.id, selectedVariant?.id ?? null, quantity);
+            const addedItem = cart.items.find((item) =>
+                item.product.id === product.id &&
+                (item.variant?.id ?? null) === (selectedVariant?.id ?? null)
+            );
+
+            if (addedItem) {
+                setCartItemId(addedItem.id);
+                setQuantity(addedItem.quantity);
+            }
+
+            toast.success("The product has been successfully added to the shopping cart.");
+        } catch (err) {
+            console.error("Add to cart error:", err);
+            toast.error(err.message || "Error adding product to the shopping cart.");
+        } finally {
+            setIsAddingToCart(false);
+        }
+    };
+
     return (
         <>
             {/* Breadcrumb */}
@@ -239,11 +464,17 @@ export default function ProductDetail() {
 
                         <button
                             type="button"
+                            onClick={handleToggleWishlist}
+                            disabled={isTogglingWishlist}
                             className="flex items-center h-fit gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-red-50 transition-all"
                         >
-                            <HeartPlus size={20} strokeWidth={2} />
+                            {isLiked ? (
+                                <HeartMinus size={20} strokeWidth={2} color="#f50000"/>
+                            ) : (
+                                <HeartPlus size={20} strokeWidth={2} />
+                            )}
                             <span className="text-sm font-medium">
-                                Like
+                                {isLiked ? "Unlike" : "Like"}
                             </span>
                         </button>
                     </div>
@@ -351,22 +582,26 @@ export default function ProductDetail() {
                             : `Available Stock: ${availableStock}`}
                     </div>
 
-                    {/* Cart Controls: UI Only */}
+                    {/* Cart Controls */}
                     <div className="flex flex-wrap gap-2.5 mt-4 items-center">
                         <div className="flex w-50 h-16 items-center bg-white border-2 border-gray-200 rounded-xl p-2">
                             <button
                                 type="button"
+                                onClick={() => setQuantity((current) => Math.max(1, current - 1))}
+                                disabled={isCartLoading || Boolean(cartItemId)}
                                 className="w-12 h-12 rounded-lg bg-gray-100 hover:bg-gray-200 font-bold text-xl"
                             >
                                 -
                             </button>
 
                             <span className="w-16 text-center text-xl font-bold mx-4">
-                                0
+                                {quantity}
                             </span>
 
                             <button
                                 type="button"
+                                onClick={() => setQuantity((current) => Math.min(current + 1, availableStock))}
+                                disabled={availableStock < 1 || quantity >= availableStock || isCartLoading || Boolean(cartItemId)}
                                 className="w-12 h-12 rounded-lg bg-gray-100 hover:bg-gray-200 font-bold text-xl"
                             >
                                 +
@@ -375,16 +610,25 @@ export default function ProductDetail() {
 
                         <button
                             type="button"
+                            onClick={handleAddToCart}
+                            disabled={isAddingToCart || isCartLoading}
                             className="border h-16 px-6 rounded-[15px]"
                         >
-                            Add to cart
+                            {isCartLoading
+                                ? "Checking cart..."
+                                : isAddingToCart
+                                    ? (cartItemId ? "Removing..." : "Adding...")
+                                    : cartItemId
+                                        ? "Remove from cart"
+                                        : "Add to cart"}
                         </button>
 
                         <button
                             type="button"
+                            onClick={handleToggleCompare}
                             className="h-16 px-6 rounded-[15px] border border-gray-300 hover:bg-gray-50"
                         >
-                            + Compare
+                            {isCompared ? "Remove from compare" : "+ Compare"}
                         </button>
                     </div>
 
