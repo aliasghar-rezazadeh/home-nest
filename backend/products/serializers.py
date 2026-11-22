@@ -72,11 +72,15 @@ class ProductReviewSerializer(serializers.ModelSerializer):
 
     user = serializers.StringRelatedField(read_only=True)
 
+    is_mine = serializers.SerializerMethodField()
+
     class Meta:
         model = ProductReview
+
         fields = [
             "id",
             "user",
+            "is_mine",
             "rating",
             "comment",
             "created_at",
@@ -86,9 +90,30 @@ class ProductReviewSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "id",
             "user",
+            "is_mine",
             "created_at",
             "updated_at",
         ]
+
+    def get_is_mine(self, obj):
+
+        request = self.context.get("request")
+
+        if not request or not request.user.is_authenticated:
+            return False
+
+        return obj.user_id == request.user.id
+
+    def validate_comment(self, value):
+
+        value = value.strip()
+
+        if not value:
+            raise serializers.ValidationError(
+                "متن نظر نمی‌تواند خالی باشد."
+            )
+
+        return value
 
 
 class ProductImageSerializer(serializers.ModelSerializer):

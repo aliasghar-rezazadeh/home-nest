@@ -1,10 +1,19 @@
 from rest_framework import generics
-from .models import Product, Category
-from .serializers import ProductSerializer, CategorySerializer
-from .filters import ProductFilter
-from core.permissions import IsAdminRoleOrReadOnly
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.exceptions import ValidationError
+from django.shortcuts import get_object_or_404
 from django.db.models import Count
+
+from .models import Product, Category, ProductReview
+from .serializers import (
+    ProductSerializer,
+    CategorySerializer,
+    ProductReviewSerializer,
+)
+from .filters import ProductFilter
 from .pagination import CategoryPagination
+from .permissions import IsReviewOwnerOrReadOnly
+from core.permissions import IsAdminRoleOrReadOnly
 
 class ProductListView(generics.ListCreateAPIView):
 
@@ -86,3 +95,62 @@ class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = CategorySerializer
 
     permission_classes = [IsAdminRoleOrReadOnly]
+
+
+class ProductReviewListCreateView(generics.ListCreateAPIView):
+
+    serializer_class = ProductReviewSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get_product(self):
+        return get_object_or_404(
+            Product,
+            pk=self.kwargs["product_id"]
+        )
+
+    def get_queryset(self):
+
+        product = self.get_product()
+
+        return (
+            ProductReview.objects
+            .filter(product=product)
+            .select_related("user")
+        )
+
+    def perform_create(self, serializer):
+
+        product = self.get_product()
+
+        # جلوگیری از ثبت نظر تکراری توسط یک کاربر
+        existing_review = ProductReview.objects.filter(
+            product=product,
+            user=self.request.user
+        ).exists()
+
+        if existing_review:
+            raise ValidationError({
+                "detail": (
+                    "You have already reviewed this product. "
+                    "You can edit your existing review."
+                )
+            })
+
+        serializer.save(
+            product=product,
+            user=self.request.user
+        )
+
+
+class ProductReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
+
+    serializer_class = ProductReviewSerializer
+
+    permission_classes = [
+        IsReviewOwnerOrReadOnly
+    ]
+
+    queryset = (
+        ProductReview.objects
+        .select_related("user", "product")
+    )
