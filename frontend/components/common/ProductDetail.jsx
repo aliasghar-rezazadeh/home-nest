@@ -11,6 +11,7 @@ import {
     ChevronRight,
     Share2,
     Link as LinkIcon,
+    Star,
 } from "lucide-react";
 
 import { useDispatch, useSelector } from "react-redux";
@@ -22,7 +23,7 @@ import { getAccessToken } from "@/api/services/auth.service";
 import { addCartItem, getCart, removeCartItem } from "@/api/services/cart.service";
 import { addToCompare } from "@/redux/slices/compareSlice";
 import { ProductsCardsGrid } from "./ProductsCardsGrid";
-
+import {getProductReviews, createReview, updateReview, deleteReview,} from "@/api/services/review.service";
 const API_URL = "http://127.0.0.1:8000";
 
 const getImageUrl = (image) => {
@@ -58,6 +59,79 @@ export default function ProductDetail() {
     const [selectedImage, setSelectedImage] = useState("");
 
     const [activeTab, setActiveTab] = useState("description");
+
+    //استیت های نظر دهی
+    const [productReviews, setProductReviews] = useState([]);
+    const [reviewRating, setReviewRating] = useState(5);
+    const [reviewComment, setReviewComment] = useState("");
+    const [editingReviewId, setEditingReviewId] = useState(null);
+    const [isReviewLoading, setIsReviewLoading] = useState(false);
+    const [reviewDraftRestored, setReviewDraftRestored] = useState(false);
+
+    // دریافت نظرات محصول از API
+    useEffect(() => {
+        if (!id) return;
+
+        let cancelled = false;
+
+        const loadReviews = async () => {
+            try {
+                const data = await getProductReviews(Number(id));
+
+                if (!cancelled) {
+                    setProductReviews(
+                        Array.isArray(data) ? data : data.results || []
+                    );
+                }
+            } catch (err) {
+                console.error("Reviews loading error:", err);
+                if (!cancelled) {
+                    toast.error(err.message || "خطا در دریافت نظرات.");
+                }
+            }
+        };
+
+        loadReviews();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [id]);
+
+    // بازیابی پیش‌نویس نظر پس از بازگشت از صفحه ورود
+    useEffect(() => {
+        if (!id) return;
+
+        const draftKey = `product-review-draft-${id}`;
+        const savedDraft = sessionStorage.getItem(draftKey);
+
+        if (!savedDraft) return;
+
+        try {
+            const draft = JSON.parse(savedDraft);
+
+            setReviewRating(
+                Number.isInteger(draft.rating) &&
+                draft.rating >= 1 &&
+                draft.rating <= 5
+                    ? draft.rating
+                    : 5
+            );
+
+            setReviewComment(
+                typeof draft.comment === "string"
+                    ? draft.comment
+                    : ""
+            );
+
+            setActiveTab("reviews");
+
+            toast.info("Your review draft has been restored.");
+        } catch (err) {
+            console.error("Review draft error:", err);
+            sessionStorage.removeItem(draftKey);
+        }
+    }, [id]);
 
     // دریافت اطلاعات محصول
     useEffect(() => {
@@ -385,6 +459,141 @@ export default function ProductDetail() {
             setIsAddingToCart(false);
         }
     };
+
+
+    // به‌روزرسانی نظرات و اطلاعات امتیاز محصول
+    const refreshReviews = async () => {
+        const [updatedReviews, updatedProduct] = await Promise.all([
+            getProductReviews(Number(id)),
+            getProductById(id),
+        ]);
+
+        setProductReviews(
+            Array.isArray(updatedReviews)
+                ? updatedReviews
+                : updatedReviews.results || []
+        );
+        setProduct(updatedProduct);
+    };
+
+    // شروع ثبت یا ویرایش نظر
+    const handleReviewSubmit = async (e) => {
+        e.preventDefault();
+
+        const comment = reviewComment.trim();
+
+        if (!comment) {
+            toast.warning("Please write your review.");
+            return;
+        }
+
+        if (reviewRating < 1 || reviewRating > 5) {
+            toast.warning("Please select a rating.");
+            return;
+        }
+
+        // اگر کاربر وارد نشده، پیش‌نویس را ذخیره و به صفحه ورود هدایت می‌کنیم
+        if (!getAccessToken()) {
+            sessionStorage.setItem(
+                `product-review-draft-${id}`,
+                JSON.stringify({
+                    rating: reviewRating,
+                    comment,
+                })
+            );
+
+            router.push(
+                `/login?next=${encodeURIComponent(`/product/${id}`)}`
+            );
+
+            return;
+        }
+
+        try {
+            setIsReviewLoading(true);
+
+            if (editingReviewId) {
+                await updateReview(
+                    editingReviewId,
+                    reviewRating,
+                    comment
+                );
+
+                toast.success("Your review has been updated.");
+            } else {
+                await createReview(
+                    Number(id),
+                    reviewRating,
+                    comment
+                );
+
+                toast.success("Your review has been submitted.");
+            }
+
+            sessionStorage.removeItem(`product-review-draft-${id}`);
+
+            setReviewRating(5);
+            setReviewComment("");
+            setEditingReviewId(null);
+
+            await refreshReviews();
+        } catch (err) {
+            console.error("Review submission error:", err);
+            toast.error(err.message || "Failed to submit your review.");
+        } finally {
+            setIsReviewLoading(false);
+        }
+    };
+
+    // شروع ویرایش نظر خود کاربر
+    const handleEditReview = (review) => {
+        setEditingReviewId(review.id);
+        setReviewRating(review.rating);
+        setReviewComment(review.comment);
+
+        setActiveTab("reviews");
+
+        // window.scrollTo({
+        //     top: document.body.scrollHeight,
+        //     behavior: "smooth",
+        // });
+    };
+
+    // لغو ویرایش
+    const handleCancelEditReview = () => {
+        setEditingReviewId(null);
+        setReviewRating(5);
+        setReviewComment("");
+    };
+
+    // حذف نظر خود کاربر
+    const handleDeleteReview = async (reviewId) => {
+        const confirmed = window.confirm(
+            "Are you sure you want to delete your review?"
+        );
+
+        if (!confirmed) return;
+
+        try {
+            setIsReviewLoading(true);
+
+            await deleteReview(reviewId);
+
+            toast.success("Your review has been deleted.");
+
+            if (editingReviewId === reviewId) {
+                handleCancelEditReview();
+            }
+
+            await refreshReviews();
+        } catch (err) {
+            console.error("Review deletion error:", err);
+            toast.error(err.message || "Failed to delete your review.");
+        } finally {
+            setIsReviewLoading(false);
+        }
+    };
+
 
     return (
         <>
@@ -805,7 +1014,7 @@ export default function ProductDetail() {
                     {activeTab === "reviews" && (
                         <div>
                             <h3 className="text-2xl font-bold mb-4">
-                                Reviews ({reviews_count})
+                                Reviews ({productReviews.length})
                             </h3>
 
                             <StarRating
@@ -813,16 +1022,149 @@ export default function ProductDetail() {
                                 className="mb-5"
                             />
 
-                            {reviews.length > 0 ? (
+                            {/* Review Form */}
+                            {(
+                                !productReviews.some((review) => review.is_mine) ||
+                                editingReviewId
+                            ) && (
+                                <form
+                                    onSubmit={handleReviewSubmit}
+                                    className="border border-gray-200 rounded-xl p-5 mb-8 space-y-5"
+                                >
+                                    <h4 className="text-xl font-semibold">
+                                        {editingReviewId ? "Edit Your Review" : "Write a Review"}
+                                    </h4>
+
+                                    {/* Rating Selection */}
+                                    <div>
+                                        <p className="text-gray-600 mb-3">
+                                            Your Rating
+                                        </p>
+
+                                        <div className="flex items-center gap-2">
+                                            {[1, 2, 3, 4, 5].map((star) => (
+                                                <button
+                                                    key={star}
+                                                    type="button"
+                                                    onClick={() => setReviewRating(star)}
+                                                    disabled={isReviewLoading}
+                                                    aria-label={`Rate ${star} out of 5`}
+                                                    className="transition hover:scale-110 disabled:opacity-50"
+                                                >
+                                                    <Star
+                                                        size={27}
+                                                        className={
+                                                            star <= reviewRating
+                                                                ? "fill-yellow-400 text-yellow-400"
+                                                                : "text-gray-300"
+                                                        }
+                                                    />
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Comment */}
+                                    <div>
+                                        <label
+                                            htmlFor="review-comment"
+                                            className="block text-gray-600 mb-2"
+                                        >
+                                            Your Review
+                                        </label>
+
+                                        <textarea
+                                            id="review-comment"
+                                            value={reviewComment}
+                                            onChange={(e) => setReviewComment(e.target.value)}
+                                            placeholder="Write your experience with this product..."
+                                            rows={4}
+                                            maxLength={2000}
+                                            disabled={isReviewLoading}
+                                            className="w-full border border-gray-300 rounded-lg p-3 outline-none focus:border-gold resize-y"
+                                        />
+
+                                        <p className="text-xs text-gray-400 mt-1 text-right">
+                                            {reviewComment.length}/2000
+                                        </p>
+                                    </div>
+
+                                    {/* Form Buttons */}
+                                    <div className="flex flex-wrap gap-3">
+                                        <button
+                                            type="submit"
+                                            disabled={isReviewLoading || !reviewComment.trim()}
+                                            className="px-6 py-3 bg-gold text-white rounded-lg hover:opacity-90 transition disabled:opacity-50"
+                                        >
+                                            {isReviewLoading
+                                                ? "Please wait..."
+                                                : editingReviewId
+                                                    ? "Update Review"
+                                                    : "Submit Review"}
+                                        </button>
+
+                                        {editingReviewId && (
+                                            <button
+                                                type="button"
+                                                onClick={handleCancelEditReview}
+                                                disabled={isReviewLoading}
+                                                className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                                            >
+                                                Cancel
+                                            </button>
+                                        )}
+                                    </div>
+                                </form>
+                            )}
+
+                            {/* Reviews List */}
+                            {productReviews.length > 0 ? (
                                 <div className="space-y-5">
-                                    {reviews.map((review) => (
+                                    {productReviews.map((review) => (
                                         <div
                                             key={review.id}
                                             className="border-b border-gray-200 pb-5"
                                         >
-                                            <StarRating rating={review.rating} />
+                                            <div className="flex justify-between items-start gap-4 flex-wrap">
+                                                <div>
+                                                    <p className="font-semibold">
+                                                        {review.user}
+                                                    </p>
 
-                                            <p className="mt-2">
+                                                    <StarRating rating={review.rating} />
+
+                                                    <p className="text-xs text-gray-400 mt-1">
+                                                        {new Date(review.created_at).toLocaleDateString()}
+                                                        {review.updated_at !== review.created_at && (
+                                                            <span> · Edited</span>
+                                                        )}
+                                                    </p>
+                                                </div>
+
+                                                {review.is_mine && (
+                                                    <div className="flex gap-3">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleEditReview(review)}
+                                                            disabled={isReviewLoading}
+                                                            className="text-sm text-blue-600 hover:underline disabled:opacity-50"
+                                                        >
+                                                            Edit
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDeleteReview(review.id)}
+                                                            disabled={isReviewLoading}
+                                                            className="text-sm text-red-600 hover:underline disabled:opacity-50"
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <p className="mt-3 text-gray-700 leading-7 whitespace-pre-wrap">
                                                 {review.comment}
                                             </p>
                                         </div>
@@ -835,6 +1177,8 @@ export default function ProductDetail() {
                             )}
                         </div>
                     )}
+
+
                 </div>
             </div>
 

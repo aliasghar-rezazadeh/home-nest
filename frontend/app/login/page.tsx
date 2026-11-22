@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -6,9 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { login } from "@/api/services/auth.service";
 import { useAuth } from "@/context/AuthContext";
+
 export default function LoginPage() {
     const router = useRouter();
     const { refreshUser } = useAuth();
+
     const [formData, setFormData] = useState({
         username: "",
         password: "",
@@ -26,16 +27,24 @@ export default function LoginPage() {
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-
         setError("");
 
         try {
             setLoading(true);
 
             await login(formData);
-
             await refreshUser();
-            router.push("/");
+
+            const params = new URLSearchParams(window.location.search);
+            const next = params.get("next");
+
+            // فقط مسیرهای داخلی سایت را قبول می‌کنیم
+            const redirectPath =
+                next && next.startsWith("/") && !next.startsWith("//")
+                    ? next
+                    : "/";
+
+            router.replace(redirectPath);
         } catch (err) {
             console.error("Login error:", err);
             setError("Username or password is incorrect.");
@@ -47,7 +56,6 @@ export default function LoginPage() {
     return (
         <main className="min-h-screen flex items-center justify-center bg-[#FAF3EA] px-4 py-12">
             <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
-
                 <div className="mb-8 text-center">
                     <h1 className="text-3xl font-bold text-gray-800">
                         Welcome Back
@@ -58,7 +66,6 @@ export default function LoginPage() {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-5">
-
                     <div>
                         <label className="mb-2 block text-sm font-medium text-gray-700">
                             Username
