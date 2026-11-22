@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { register } from "@/api/services/auth.service";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function RegisterPage() {
     const router = useRouter();
@@ -19,6 +20,8 @@ export default function RegisterPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+    const [showPassword2, setShowPassword2] = useState(false);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({
@@ -105,30 +108,62 @@ export default function RegisterPage() {
                         <label className="mb-2 block text-sm font-medium text-gray-700">
                             Password
                         </label>
-                        <input
-                            type="password"
-                            name="password"
-                            value={formData.password}
-                            onChange={handleChange}
-                            required
-                            className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-[#B88E2F]"
-                            placeholder="Enter your password"
-                        />
+
+                        <div className="relative">
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                name="password"
+                                value={formData.password}
+                                onChange={handleChange}
+                                required
+                                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-[#B88E2F]"
+                                placeholder="Enter your password"
+                            />
+
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword((prev) => !prev)}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800 transition"
+                                aria-label={showPassword ? "Hide password" : "Show password"}
+                            >
+                                {showPassword ? (
+                                    <EyeOff size={20} />
+                                ) : (
+                                    <Eye size={20} />
+                                )}
+                            </button>
+                        </div>
                     </div>
 
                     <div>
                         <label className="mb-2 block text-sm font-medium text-gray-700">
                             Confirm Password
                         </label>
-                        <input
-                            type="password"
-                            name="password2"
-                            value={formData.password2}
-                            onChange={handleChange}
-                            required
-                            className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-[#B88E2F]"
-                            placeholder="Repeat your password"
-                        />
+
+                        <div className="relative">
+                            <input
+                                type={showPassword2 ? "text" : "password"}
+                                name="password2"
+                                value={formData.password2}
+                                onChange={handleChange}
+                                required
+                                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-[#B88E2F]"
+                                placeholder="Repeat your password"
+                            />
+
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword2((prev) => !prev)}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800 transition"
+                                aria-label={showPassword2 ? "Hide password" : "Show password"}
+                            >
+                                {showPassword2 ? (
+                                    <EyeOff size={20} />
+                                ) : (
+                                    <Eye size={20} />
+                                )}
+                            </button>
+                        </div>
                     </div>
 
                     {error && (

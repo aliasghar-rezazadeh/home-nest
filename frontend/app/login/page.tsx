@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -5,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { login } from "@/api/services/auth.service";
 import { useAuth } from "@/context/AuthContext";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -17,6 +19,7 @@ export default function LoginPage() {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({
@@ -24,6 +27,7 @@ export default function LoginPage() {
             [e.target.name]: e.target.value,
         });
     };
+
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -46,8 +50,11 @@ export default function LoginPage() {
 
             router.replace(redirectPath);
         } catch (err) {
-            console.error("Login error:", err);
-            setError("Username or password is incorrect.");
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "Username or password is incorrect."
+            );
         } finally {
             setLoading(false);
         }
@@ -88,16 +95,31 @@ export default function LoginPage() {
                             Password
                         </label>
 
-                        <input
-                            type="password"
-                            name="password"
-                            value={formData.password}
-                            onChange={handleChange}
-                            required
-                            autoComplete="current-password"
-                            placeholder="Enter your password"
-                            className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-[#B88E2F]"
-                        />
+                        <div className="relative">
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                name="password"
+                                value={formData.password}
+                                onChange={handleChange}
+                                required
+                                autoComplete="current-password"
+                                placeholder="Enter your password"
+                                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-[#B88E2F]"
+                            />
+
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword((prev) => !prev)}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800 transition"
+                                aria-label={showPassword ? "Hide password" : "Show password"}
+                            >
+                                {showPassword ? (
+                                    <EyeOff size={20} />
+                                ) : (
+                                    <Eye size={20} />
+                                )}
+                            </button>
+                        </div>
                     </div>
 
                     {error && (
